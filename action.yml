@@ -1,5 +1,5 @@
 name: 'Papyrus Markdown Export'
-description: 'Exports documentation from a Papyrus model. Requires prior call to `thomas-worm/setup-papyrus` unless pre-exported images are available.'
+description: 'Exports documentation from a Papyrus model. Requires `thomas-worm/setup-papyrus` or pre-exported digram images.'
 author: 'Thomas Worm'
 
 branding:
