@@ -1,0 +1,62 @@
+# --- Generated output -------------------------------------------------------
+# The action writes the markdown tree wherever output-dir points; anyone
+# testing locally against the sample model should use a docs/ path or a
+# temp dir. Nothing generated is committed to this repo. site/ and
+# _site/ are the GitHub Pages staging directories of the CI workflow.
+docs/
+docs-*/
+site/
+_site/
+
+# --- Node -------------------------------------------------------------------
+# The scripts are dependency-free; a node_modules directory would only
+# appear from local experiments and must never be committed.
+node_modules/
+npm-debug.log*
+
+# --- IDE: Eclipse / Papyrus -------------------------------------------------
+# The model/.project file is the Papyrus model descriptor and must stay
+# tracked. All other Eclipse IDE descriptors are user-local.
+.classpath
+.settings/
+.project
+!model/.project
+
+# --- IDE: IntelliJ IDEA -----------------------------------------------------
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# --- IDE: Visual Studio Code ------------------------------------------------
+.vscode/
+
+# --- OS: macOS --------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- OS: Windows ------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# --- Backup / temp files ----------------------------------------------------
+*~
+*.bak
+*.tmp
+*.swp
+*.orig
+*.rej
+
+# --- Logs -------------------------------------------------------------------
+*.log
+
+# --- Local environment overrides --------------------------------------------
+.env
+.envrc
+
+# --- AI / agent local state -------------------------------------------------
+.claude/
+.cursor/
+.aider*

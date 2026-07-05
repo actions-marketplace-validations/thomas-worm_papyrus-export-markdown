@@ -1,0 +1,12 @@
+# Code owners for this repository.
+#
+# The patterns follow the GitHub CODEOWNERS format. Each line is a file
+# pattern followed by one or more owners; the last matching pattern
+# wins. Owners are automatically requested for review whenever a pull
+# request changes files they own.
+#
+# Reference:
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repository.
+* @thomas-ej-worm

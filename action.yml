@@ -1,0 +1,137 @@
+name: 'Papyrus Markdown Export'
+description: 'Export markdown documentation from the package tree of a Papyrus model. Requires a prior call to `thomas-worm/setup-papyrus` unless pre-exported diagram images are supplied.'
+author: 'Thomas Worm'
+
+branding:
+  icon: 'book-open'
+  color: 'orange'
+
+inputs:
+  model-dir:
+    description: 'Directory containing the Papyrus model (scanned recursively for *.uml, *.di/*.notation and *.aird files; GMF diagrams need their .di file, matching papyrus-export-diagrams).'
+    required: false
+    default: 'model'
+  start-package:
+    description: 'Package to start the export from, as qualified name (e.g. Documentation::arc42, with or without the root model name) or as xmi:id. Empty exports from the model root.'
+    required: false
+    default: ''
+  output-dir:
+    description: 'Directory where the markdown tree will be written. Created if missing.'
+    required: true
+  include-diagrams:
+    description: 'If true, diagrams placed directly inside a package are embedded into that package''s markdown file (after its comments) unless already referenced there via uml:#.'
+    required: false
+    default: 'true'
+  diagram-format:
+    description: 'Image format for diagram exports: SVG, PNG, JPEG, BMP, or GIF.'
+    required: false
+    default: 'SVG'
+  images-subdir:
+    description: 'Name of the directory below output-dir where diagram images are placed.'
+    required: false
+    default: 'images'
+  images-dir:
+    description: 'Directory with diagram images pre-exported by thomas-worm/papyrus-export-diagrams using naming: xmiId and the same format. When set, the internal diagram export is skipped and papyrus-home is not needed.'
+    required: false
+    default: ''
+  index-file:
+    description: 'File name of the markdown file generated per package, e.g. README.md (rendered by GitHub) or index.md (MkDocs convention).'
+    required: false
+    default: 'README.md'
+  add-title:
+    description: 'If true, every generated file starts with a `# <package name>` heading.'
+    required: false
+    default: 'true'
+  papyrus-home:
+    description: 'Path to the Papyrus-Desktop installation (folder containing the plugins/ directory). Produced by setup-papyrus as papyrus-home. Required unless images-dir is set.'
+    required: false
+    default: ''
+  papyrus-launcher:
+    description: 'Path to the Papyrus-Desktop launcher executable. Produced by setup-papyrus as papyrus-launcher. Optional — falls back to searching inside papyrus-home if omitted.'
+    required: false
+    default: ''
+  fail-on-error:
+    description: 'If true, the step fails when a diagram fails to export or a uml:# reference cannot be resolved. If false, exports as much as possible and reports warnings.'
+    required: false
+    default: 'true'
+
+outputs:
+  package-count:
+    description: 'Number of markdown files generated (one per package).'
+    value: ${{ steps.generate.outputs.package-count }}
+  diagram-count:
+    description: 'Number of distinct diagram images embedded or referenced in the generated markdown.'
+    value: ${{ steps.generate.outputs.diagram-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      env:
+        IMAGES_DIR:   ${{ inputs.images-dir }}
+        PAPYRUS_HOME: ${{ inputs.papyrus-home }}
+        OUTPUT_DIR:   ${{ inputs.output-dir }}
+      run: |
+        set -euo pipefail
+        # Fail fast on an empty output-dir before the expensive Papyrus
+        # diagram export gets a chance to run.
+        if [[ -z "${OUTPUT_DIR}" ]]; then
+          echo "::error::The output-dir input must not be empty."
+          exit 1
+        fi
+        # Diagram images come from exactly one of two sources: the
+        # internal papyrus-export-diagrams run (needs papyrus-home from
+        # setup-papyrus) or a pre-exported directory (images-dir).
+        if [[ -z "${IMAGES_DIR}" && -z "${PAPYRUS_HOME}" ]]; then
+          echo "::error::Either papyrus-home (from thomas-worm/setup-papyrus) or images-dir (pre-exported diagram images) must be provided."
+          exit 1
+        fi
+        if ! command -v node >/dev/null 2>&1; then
+          echo "::error::node not found on PATH — this action needs Node.js 18+ (preinstalled on GitHub-hosted runners)."
+          exit 1
+        fi
+
+    - name: Export diagram images
+      # Skipped when the caller supplies pre-exported images. The
+      # xmiId naming mode is mandatory: it is the only mode whose
+      # filenames can be computed deterministically from the model, so
+      # uml:# references can be resolved to image paths.
+      if: ${{ inputs.images-dir == '' }}
+      uses: thomas-worm/papyrus-export-diagrams@v1
+      with:
+        papyrus-home:     ${{ inputs.papyrus-home }}
+        papyrus-launcher: ${{ inputs.papyrus-launcher }}
+        model-dir:        ${{ inputs.model-dir }}
+        output-dir:       ${{ inputs.output-dir }}/${{ inputs.images-subdir }}
+        format:           ${{ inputs.diagram-format }}
+        naming:           'xmiId'
+        fail-on-error:    ${{ inputs.fail-on-error }}
+
+    - name: Generate markdown
+      id: generate
+      shell: bash
+      env:
+        MODEL_DIR:        ${{ inputs.model-dir }}
+        START_PACKAGE:    ${{ inputs.start-package }}
+        OUTPUT_DIR:       ${{ inputs.output-dir }}
+        IMAGES_SUBDIR:    ${{ inputs.images-subdir }}
+        IMAGES_DIR:       ${{ inputs.images-dir }}
+        INDEX_FILE:       ${{ inputs.index-file }}
+        DIAGRAM_FORMAT:   ${{ inputs.diagram-format }}
+        INCLUDE_DIAGRAMS: ${{ inputs.include-diagrams }}
+        ADD_TITLE:        ${{ inputs.add-title }}
+        FAIL_ON_ERROR:    ${{ inputs.fail-on-error }}
+      run: |
+        set -euo pipefail
+        node "${{ github.action_path }}/scripts/export-markdown.mjs" \
+          --model-dir        "${MODEL_DIR}" \
+          --start-package    "${START_PACKAGE}" \
+          --output-dir       "${OUTPUT_DIR}" \
+          --images-subdir    "${IMAGES_SUBDIR}" \
+          --images-source    "${IMAGES_DIR}" \
+          --index-file       "${INDEX_FILE}" \
+          --diagram-format   "${DIAGRAM_FORMAT}" \
+          --include-diagrams "${INCLUDE_DIAGRAMS}" \
+          --add-title        "${ADD_TITLE}" \
+          --fail-on-error    "${FAIL_ON_ERROR}"

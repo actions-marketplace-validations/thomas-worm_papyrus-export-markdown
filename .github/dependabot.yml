@@ -1,0 +1,24 @@
+# Configuration for Dependabot — GitHub's bot that opens pull requests
+# whenever a referenced action publishes a newer version.
+#
+# Reference:
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Watch every `uses:` reference in this repo: the action.yml composite
+  # at the root and every workflow under .github/workflows/. Dependabot
+  # opens a PR per outdated action, weekly on Mondays.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(actions)"
+    labels:
+      - "dependencies"
+      - "github-actions"

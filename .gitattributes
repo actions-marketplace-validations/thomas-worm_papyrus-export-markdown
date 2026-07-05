@@ -1,0 +1,45 @@
+# Default: detect text vs binary automatically, normalise EOL to LF on
+# checkin so contributors on Windows don't accidentally introduce CRLF.
+* text=auto eol=lf
+
+# --- JavaScript sources -----------------------------------------------------
+*.mjs text eol=lf
+*.js text eol=lf
+
+# --- GitHub Actions / shell -------------------------------------------------
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# --- Docs -------------------------------------------------------------------
+*.md text eol=lf
+*.txt text eol=lf
+LICENSE text eol=lf
+
+# --- Papyrus / EMF model files (all XML) ------------------------------------
+*.di text eol=lf
+*.uml text eol=lf
+*.notation text eol=lf
+*.aird text eol=lf
+*.pdst text eol=lf
+*.ecore text eol=lf
+*.genmodel text eol=lf
+*.project text eol=lf
+
+# --- Rendered SVG outputs ---------------------------------------------------
+# Treated as text so diffs are reviewable, but viewers in the GitHub UI
+# render them as images when "Rich diff" is on.
+*.svg text eol=lf
+
+# --- Binary assets ----------------------------------------------------------
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.tgz binary

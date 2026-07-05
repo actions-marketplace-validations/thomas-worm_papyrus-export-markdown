@@ -1,0 +1,164 @@
+name: "Test: papyrus-export-markdown"
+
+on:
+  push: {}
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  testExportMarkdown:
+    name: "Test on ${{ matrix.os }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Papyrus
+        id: papyrus
+        uses: thomas-worm/setup-papyrus@v1
+
+      # ---- Full export from the model root (internal diagram export) ----
+      - name: Run markdown export
+        id: export
+        uses: ./
+        with:
+          papyrus-home:     ${{ steps.papyrus.outputs.papyrus-home }}
+          papyrus-launcher: ${{ steps.papyrus.outputs.papyrus-launcher }}
+          model-dir:        model
+          output-dir:       docs
+
+      - name: Verify generated documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Packages: ${{ steps.export.outputs.package-count }}"
+          echo "Diagrams: ${{ steps.export.outputs.diagram-count }}"
+          node .github/scripts/verify-docs.mjs \
+            --docs docs --index README.md \
+            --expect-packages 29 \
+            --reported-packages "${{ steps.export.outputs.package-count }}" \
+            --expect-diagrams 1 \
+            --reported-diagrams "${{ steps.export.outputs.diagram-count }}"
+
+      # ---- Subtree export reusing the images exported above --------------
+      # Exercises start-package selection, the images-dir shortcut (no
+      # second Papyrus run) and a non-default index file name.
+      - name: Run subtree export with pre-exported images
+        id: subtree
+        uses: ./
+        with:
+          model-dir:     model
+          output-dir:    docs-subtree
+          start-package: 'Documentation'
+          images-dir:    docs/images
+          index-file:    index.md
+
+      - name: Verify subtree documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/scripts/verify-docs.mjs \
+            --docs docs-subtree --index index.md \
+            --expect-packages 25 \
+            --reported-packages "${{ steps.subtree.outputs.package-count }}" \
+            --expect-diagrams 1 \
+            --reported-diagrams "${{ steps.subtree.outputs.diagram-count }}"
+
+      - name: Upload generated documentation
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-docs
+          path: |
+            docs
+            docs-subtree
+
+      - name: Upload export log on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: papyrus-export-log-${{ matrix.os }}
+          path: ${{ runner.temp }}/papyrus-export.log
+          if-no-files-found: warn
+
+  # ---- GitHub Pages: publish the Documentation package as a site ---------
+  # Exports the markdown starting at the "Documentation" package (selected
+  # by xmi:id to exercise id-based start-package resolution), renders it
+  # with the same Jekyll build GitHub Pages uses for branch builds (so
+  # relative index.md links become page links and the Primer theme
+  # applies), and deploys the result. Requires the repository's Pages
+  # source to be set to "GitHub Actions" (build_type: workflow).
+  deployPages:
+    name: "Deploy documentation to GitHub Pages"
+    needs: testExportMarkdown
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Papyrus
+        id: papyrus
+        uses: thomas-worm/setup-papyrus@v1
+
+      - name: Export documentation package as markdown
+        uses: ./
+        with:
+          papyrus-home:     ${{ steps.papyrus.outputs.papyrus-home }}
+          papyrus-launcher: ${{ steps.papyrus.outputs.papyrus-launcher }}
+          model-dir:        model
+          output-dir:       site
+          start-package:    '_Sc8MIGqAEfGhz_JEWM1XrA'
+          index-file:       index.md
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Render markdown with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: site
+          destination: _site
+
+      - name: Copy diagram images into the built site
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Jekyll skips files whose names start with '_', and the
+          # xmi-id image stems do (e.g. _DjtpcGsB….svg) — copy the
+          # images directory into the rendered site by hand. The Jekyll
+          # container writes _site as root, hence sudo.
+          sudo mkdir -p _site/images
+          sudo cp -R site/images/. _site/images/
+          # Fail fast if any image referenced by a rendered page is
+          # missing from the deployed tree.
+          missing=0
+          while IFS= read -r img; do
+            if [[ ! -f "_site/images/${img}" ]]; then
+              echo "::error::image missing from built site: images/${img}"
+              missing=1
+            fi
+          done < <(ls site/images)
+          exit "${missing}"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
