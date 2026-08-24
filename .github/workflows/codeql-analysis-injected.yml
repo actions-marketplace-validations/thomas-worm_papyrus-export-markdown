@@ -73,4 +73,4 @@ jobs:
        npm run all
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@a669cc5936cc5e1b6a362ec1ff9e410dc570d190 # v2.1.36
+      uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
